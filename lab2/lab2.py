@@ -12,17 +12,20 @@ img_h = img_w = 28             # images are 28x28
 img_size_flat = img_h * img_w  # 28x28=784, the total number of pixels
 img_classes = 10
 
-epochs = 20
-batch_size = 128
 display_freq = 256
-learning_rate = 0.01
-enable_dropout = True
-dropout_rate = 0.15
-regularization_enabled = False
-regularization_beta = 0.01
 
-number_of_units = 500
-number_of_layers = 4
+epochs = 60
+batch_size = 100
+learning_rate = 0.001
+enable_dropout = True
+dropout_rate = 0.1
+regularization_enabled = True
+regularization_beta = 0.005
+
+structure = None
+
+number_of_units = 400
+number_of_layers = 3
 
 rnd_seed = 42
 
@@ -79,8 +82,8 @@ def fc_layer(x, num_units, name, use_relu=True, dropout=enable_dropout):
 
 
 def batch_shuffle(x, y, seed):
-    if seed is not None:
-        np.random.seed(seed)
+    # if seed is not None:
+    #     np.random.seed(seed)
 
     permutation = np.random.permutation(y.shape[0])
     x_shuffled = x[permutation, :]
@@ -100,10 +103,16 @@ def init_nn(x, y):
 
     out_l = x
     weights = []
-    for i in range(number_of_layers):
-        layer, w = fc_layer(out_l, number_of_units, f'FC{i + 1}', True)
-        out_l = layer
-        weights.append(w)
+    if structure:
+        for i, num_neurons in enumerate(structure):
+            layer, w = fc_layer(out_l, num_neurons, f'FC{i + 1}', True)
+            out_l = layer
+            weights.append(w)
+    else:
+        for i in range(number_of_layers):
+            layer, w = fc_layer(out_l, number_of_units, f'FC{i + 1}', True)
+            out_l = layer
+            weights.append(w)
 
     output_logits, w_out = fc_layer(out_l, img_classes, 'OUT', False, False)
     weights.append(w_out)
@@ -112,7 +121,6 @@ def init_nn(x, y):
     loss_function = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(labels=y, logits=output_logits),
                                    name='loss_function')
     if regularization_enabled:
-        pass
         regularizer = reduce(lambda r1, r2: r1 + r2, map(tf.nn.l2_loss, weights))
         loss_function = tf.reduce_mean(loss_function + regularization_beta * regularizer)
     optimizer = tf.train.GradientDescentOptimizer(learning_rate=learning_rate, name='Optimizer').minimize(loss_function)
@@ -176,9 +184,6 @@ def test_nn(x, y, te_x, te_y, sess, loss_function, accuracy):
 
 def main():
     tr_x, tr_y, te_x, te_y, v_x, v_y = load_data()
-    # tr_x = tr_x.reshape(tr_x.shape[0], -1)
-    # te_x = te_x.reshape(te_x.shape[0], -1)
-    # v_x = v_x.reshape(v_x.shape[0], -1)
 
     x = tf.placeholder(tf.float32, shape=[None, img_size_flat], name='X')
     y = tf.placeholder(tf.float32, shape=[None, img_classes], name='Y')
